@@ -1,0 +1,25 @@
+--cpu Cortex-M0
+"mixer\startup_stm32f072xb.o"
+"mixer\main.o"
+"mixer\stm32f0xx_it.o"
+"mixer\stm32f0xx_hal_msp.o"
+"mixer\stm32f0xx_hal_tim.o"
+"mixer\stm32f0xx_hal_tim_ex.o"
+"mixer\stm32f0xx_hal_rcc.o"
+"mixer\stm32f0xx_hal_rcc_ex.o"
+"mixer\stm32f0xx_hal.o"
+"mixer\stm32f0xx_hal_i2c.o"
+"mixer\stm32f0xx_hal_i2c_ex.o"
+"mixer\stm32f0xx_hal_gpio.o"
+"mixer\stm32f0xx_hal_dma.o"
+"mixer\stm32f0xx_hal_cortex.o"
+"mixer\stm32f0xx_hal_pwr.o"
+"mixer\stm32f0xx_hal_pwr_ex.o"
+"mixer\stm32f0xx_hal_flash.o"
+"mixer\stm32f0xx_hal_flash_ex.o"
+"mixer\stm32f0xx_hal_exti.o"
+"mixer\system_stm32f0xx.o"
+--strict --scatter "Mixer\Mixer.sct"
+--summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "Mixer.map" -o Mixer\Mixer.axf
