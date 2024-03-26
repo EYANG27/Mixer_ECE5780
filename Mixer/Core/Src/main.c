@@ -35,6 +35,11 @@
 void SystemClock_Config(void);
 
 // USART methods
+
+
+
+
+
 void Init_USART3(void);
 void Init_LEDs(void);
 void Transmit_Char(char c);
