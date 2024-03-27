@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+ /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file           : main.c
@@ -75,7 +75,7 @@ int main(void) {
 	
 	// Instantiate a null-terminated array to hold incoming messages.
 	char valve_ID;
-	char action_ID;
+	char action_ID; 
 
 	// Run
   while (1) {
