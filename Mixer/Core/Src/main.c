@@ -35,17 +35,14 @@
 void SystemClock_Config(void);
 
 // USART methods
-
-
-
-
-
 void Init_USART3(void);
 void Init_LEDs(void);
 void Transmit_Char(char c);
 void Transmit_String(char* str);
 void USART3_4_IRQHandler(void);
 void Process_TDR(char valve_ID, char action_ID);
+
+void Init_Pins(void);
 
 /* Global variables -----------------------------------------------*/
 int GREEN = (1 << 9);
@@ -62,7 +59,7 @@ volatile uint8_t message_received_flag;
   */
 int main(void) {
 
-  // Reset, , enable, and configure the clock and all peripherals.
+  // Reset, enable, and configure the clock and all peripherals.
   HAL_Init();
   Init_LEDs();
 	Init_USART3();
@@ -72,6 +69,8 @@ int main(void) {
 	message_received_flag = 0;
 	received_byte = '&'; // Initialized it to some junk that would never be processed.
 	
+	// Configure the pins we'll use.
+	Init_Pins();
 	
 	// Instantiate a null-terminated array to hold incoming messages.
 	char valve_ID;
@@ -79,6 +78,7 @@ int main(void) {
 
 	// Run
   while (1) {
+		
 		// Display a prompt to the user to get two characters.
 		Transmit_String("\nSpecify the valve to open/close: ");
 		
@@ -112,6 +112,7 @@ int main(void) {
 			// Otherwise display what should be going on with the valve (Ex: "Closing valve 2").
 			Transmit_String(valve_op); Transmit_Char(received_byte);
 			
+			// Then perform the operation.
 			Process_TDR(valve_ID, action_ID);
 			continue;
 		}
@@ -122,7 +123,7 @@ int main(void) {
   }
 }
 
-// _________________________________________________________ Peripheral Initializations __________________________________________________________________________________
+// _________________________________________________________ Peripheral and Pin Initializations __________________________________________________________________________________
 void Init_LEDs(void) {
 	
 	// Initialize Port C: LEDs and pins
@@ -199,6 +200,43 @@ void Init_USART3(void) {
 	NVIC_SetPriority(USART3_4_IRQn, 2);
 }
 
+void Init_Pins(void) {
+	
+	// Configure GPIOB 11, 12, and 13 to control the valves.
+	
+	// Feed the clock into the peripheral
+	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+	
+	// Configure the pins to general purpose output mode (01)
+	GPIOB->MODER &= ~(2 << 2*11);
+	GPIOB->MODER &= ~(2 << 2*12);
+	GPIOB->MODER &= ~(2 << 2*13);
+	GPIOB->MODER |= 1 << 2*11;
+	GPIOB->MODER |= 1 << 2*12;
+	GPIOB->MODER |= 1 << 2*13;
+	
+	// Push Pull (0)
+	GPIOB->OTYPER &= ~(1 << 11);
+	GPIOB->OTYPER &= ~(1 << 12);
+	GPIOB->OTYPER &= ~(1 << 13);
+	
+	// Low speed (x0)
+	GPIOB->OSPEEDR &= ~(1 << 2*11);
+	GPIOB->OSPEEDR &= ~(1 << 2*12);
+	GPIOB->OSPEEDR &= ~(1 << 2*13);
+	
+	// Pull down (10)
+	GPIOB->PUPDR |= (2 << 2*11);
+	GPIOB->PUPDR |= (2 << 2*12);
+	GPIOB->PUPDR |= (2 << 2*13);
+	GPIOB->PUPDR &= ~(1 << 2*11);
+	GPIOB->PUPDR &= ~(1 << 2*12);
+	GPIOB->PUPDR &= ~(1 << 2*13);
+	
+	// Initialize off
+	GPIOB->ODR &= ~(7 << 11);
+}
+
 // _________________________________________________________ Interrupt Handlers __________________________________________________________________________________
 
 /*
@@ -236,41 +274,45 @@ void Transmit_String(char* str) {
 }
 
 /*
-* Decodes the input message as an action.
-* The first element is a letter that indicates which LED to change.
-* The second element is the number and indicates the action to take on it.
+* Drives the GPIO pins for controlling the valves.
+* 
+* The valve_ID is a letter that indicates which valve to operate on (1, 2, or 3).
+* The second element is 'o' or 'c' to specify open or close.
 * If the input is not in the set of predefined commands then an error message is displayed.
 */
 void Process_TDR(char valve_ID, char action_ID) {
 	
 	int LED;
-	int valve_register_bit;
+	int odr_mask;
+	
+	// Specify which valve (and LED) to operate on.
 	switch(valve_ID) {
 		case '1':
 			LED = RED;
-		valve_register_bit = 1; // TODO:
+		odr_mask = 1 << 1;
 			break;
 		case '2':
 			LED = GREEN;
-			valve_register_bit = 1; // TODO:
+			odr_mask = 1 << 2;
 			break;
 		case '3':
 			LED = BLUE;
-			valve_register_bit = 1; // TODO:
+			odr_mask = 1 << 3;
 			break;
 		default:
 			Transmit_String("\nSomething went wrong. ");
 			return;
 	}
-
+	
+	// Determine the specified action and perform it.
 	switch(action_ID) {
 		case 'o':
-			GPIOC->ODR &= ~(LED);
-			// TODO: drive the pin on the STM corresponding to the valve. 
+			GPIOC->ODR |= LED;
+			GPIOA->ODR |= odr_mask; 
 			break;
 		case 'c':
-			GPIOC->ODR |= LED;
-			// TODO: drive the pin on the STM corresponding to the valve.
+			GPIOC->ODR &= ~(LED);
+			GPIOA->ODR &= ~odr_mask;
 			break;
 		default:
 			Transmit_String("Wrong number. ");
