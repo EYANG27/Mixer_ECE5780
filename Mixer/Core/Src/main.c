@@ -205,14 +205,16 @@ void Init_Pins(void) {
 	// Configure GPIOB 11, 12, and 13 to control the valves.
 	
 	// Feed the clock into the peripheral
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
 	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
-	
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+
 	// Configure the pins to general purpose output mode (01)
 	GPIOB->MODER &= ~(2 << 2*11);
 	GPIOB->MODER &= ~(2 << 2*12);
 	GPIOB->MODER &= ~(2 << 2*13);
-	GPIOB->MODER |= 1 << 2*11;
-	GPIOB->MODER |= 1 << 2*12;
+	GPIOB->MODER |= (1 << 2*11);
+	GPIOB->MODER |= (1 << 2*12);
 	GPIOB->MODER |= 1 << 2*13;
 	
 	// Push Pull (0)
@@ -289,15 +291,15 @@ void Process_TDR(char valve_ID, char action_ID) {
 	switch(valve_ID) {
 		case '1':
 			LED = RED;
-		odr_mask = 1 << 1;
+			odr_mask |= (1 << 11);
 			break;
 		case '2':
 			LED = GREEN;
-			odr_mask = 1 << 2;
+			odr_mask |= (1 << 12);
 			break;
 		case '3':
 			LED = BLUE;
-			odr_mask = 1 << 3;
+			odr_mask |= (1 << 13);
 			break;
 		default:
 			Transmit_String("\nSomething went wrong. ");
@@ -307,12 +309,13 @@ void Process_TDR(char valve_ID, char action_ID) {
 	// Determine the specified action and perform it.
 	switch(action_ID) {
 		case 'o':
-			GPIOC->ODR |= LED;
-			GPIOA->ODR |= odr_mask; 
+			GPIOB->ODR |= (odr_mask);
+			GPIOC->ODR |= (LED);
+			 
 			break;
 		case 'c':
 			GPIOC->ODR &= ~(LED);
-			GPIOA->ODR &= ~odr_mask;
+			GPIOB->ODR &= ~(odr_mask);
 			break;
 		default:
 			Transmit_String("Wrong number. ");
