@@ -387,7 +387,7 @@ void Process_TDR(char valve_ID, char action_ID) {
 
 /**
 		We supplied 500 mv from the AD2 and placed the thermocouple directly in between source and ground. That led to the observed LED transitions being
-		in the range 46-48. The changes in voltage accross the thermocouple are very small (in the tens of milivolt range)>.
+		in the range 45-48. The changes in voltage accross the thermocouple are very small (in the tens of milivolt range)>.
 		
 		We observed that the colder the thermocouple is, the higher the voltage read on the GPIO pin by ADC1->DR (data register). Likewise, the hotter the 
 		thermocouple, the lower the number in the ADC's data register.
@@ -398,26 +398,30 @@ void Process_TDR(char valve_ID, char action_ID) {
 		**/
 void Sense_Temperature(void) {
 	while(1) {
-		
-		// Store the analo into a variable
+
+		// Store the analog value into a variable
 		float temperature = ADC1->DR;
 		
 		GPIOC->ODR &= ~(RED | BLUE | GREEN | ORANGE);
-		if(temperature < 46) {
-			GPIOC->ODR |= ORANGE; // HOTTEST (in fire)
+		if(temperature < 45.5) { //45.2
 			GPIOC->ODR &= ~(RED | BLUE | GREEN);
+			GPIOC->ODR |= ORANGE; // HOTTEST (in fire)
+			
 		}
-		else if(temperature < 47) { 
-			GPIOC->ODR |= RED; // Room Temperature.
+		else if(temperature < 47) { // 46.7
 			GPIOC->ODR &= ~(BLUE | GREEN | ORANGE);
+			GPIOC->ODR |= RED; // Room Temperature.
+			
 		}
-		else if(temperature < 47.2) {
-			GPIOC->ODR |= GREEN; // Cold (water from the drinking fountain)
+		else if(temperature < 48.5) { // 48
 			GPIOC->ODR &= ~(RED | BLUE | ORANGE);
+			GPIOC->ODR |= GREEN; // Cold (water from the drinking fountain)
+			
 		}
-		else {
-			GPIOC->ODR |= BLUE; // COLDEST (ice water)
+		else if (temperature < 52) { // 52
 			GPIOC->ODR &= ~(RED | GREEN | ORANGE);
+			GPIOC->ODR |= BLUE; // COLDEST (ice water)
+			
 		}
 	}
 }
