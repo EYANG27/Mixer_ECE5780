@@ -383,23 +383,42 @@ void Process_TDR(char valve_ID, char action_ID) {
 
 
 // _________________________________________________________ Temperature Control __________________________________________________________________________________
+
+
+/**
+		We supplied 500 mv from the AD2 and placed the thermocouple directly in between source and ground. That led to the observed LED transitions being
+		in the range 46-48. The changes in voltage accross the thermocouple are very small (in the tens of milivolt range)>.
+		
+		We observed that the colder the thermocouple is, the higher the voltage read on the GPIO pin by ADC1->DR (data register). Likewise, the hotter the 
+		thermocouple, the lower the number in the ADC's data register.
+
+		Compareing these observations to our existing knowledge of resitors, we know that as temperature decreases, materials become more dense resistance
+		also decreases. the hotter the temperatures, the less dense so high resistance.
+			This observed as we put things in cold water, the leds were blue/orange, but as things get heated up, it gets closer to the red and green LED.
+		**/
 void Sense_Temperature(void) {
 	while(1) {
 		
-		// Start with everything turned off
+		// Store the analo into a variable
+		float temperature = ADC1->DR;
+		
 		GPIOC->ODR &= ~(RED | BLUE | GREEN | ORANGE);
-		
-		// Store the analog signal into a variable
-		int16_t temperature = ADC1->DR;
-		
-		if(temperature <= 100)
-			GPIOC->ODR |= RED;
-		else if(temperature < 150)
-			GPIOC->ODR |= GREEN;
-		else if(temperature < 300)
-			GPIOC->ODR |= BLUE;
-		else
-			GPIOC->ODR |= ORANGE;
+		if(temperature < 46) {
+			GPIOC->ODR |= ORANGE; // HOTTEST (in fire)
+			GPIOC->ODR &= ~(RED | BLUE | GREEN);
+		}
+		else if(temperature < 47) { 
+			GPIOC->ODR |= RED; // Room Temperature.
+			GPIOC->ODR &= ~(BLUE | GREEN | ORANGE);
+		}
+		else if(temperature < 47.2) {
+			GPIOC->ODR |= GREEN; // Cold (water from the drinking fountain)
+			GPIOC->ODR &= ~(RED | BLUE | ORANGE);
+		}
+		else {
+			GPIOC->ODR |= BLUE; // COLDEST (ice water)
+			GPIOC->ODR &= ~(RED | GREEN | ORANGE);
+		}
 	}
 }
 // _________________________________________________________ System __________________________________________________________________________________
