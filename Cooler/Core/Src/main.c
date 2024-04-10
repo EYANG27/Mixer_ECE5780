@@ -20,9 +20,6 @@
 	* TODO: write documentation
 	*
 	*
-	* TODO:
-	*     Voltage for hot (warm) water: 
-	*     Voltage for cold (ice) water: 
 	*
 	*
 	*
@@ -31,6 +28,10 @@
   */
 
 #include "main.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "stm32f0xx.h"
+#include "motor.h"
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -46,8 +47,10 @@ void Control_Valves(void);
 
 void Init_ADC(void);
 void Calibrate_and_start_ADC(void);
-void Init_Pins(void);
+void Init_Valve_Pins(void);
 void Sense_Temperature(void);
+
+void Init_Pump_Pin(void);
 
 /* Global variables -----------------------------------------------*/
 int GREEN = (1 << 9);
@@ -55,10 +58,13 @@ int ORANGE = (1 << 8);
 int BLUE = (1 << 7);
 int RED = (1 << 6);
 
+// Valve control
 volatile char received_byte;
 volatile uint8_t message_received_flag;
 static char valve_ID;
 static char action_ID;
+
+// TODO: Pump control
 
 /**
   * @brief  The application entry point.
@@ -70,12 +76,17 @@ int main(void) {
   HAL_Init();
   SystemClock_Config();
 	
+	// Feed the clock into the peripherals we'll use.
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	
 	// Configure the pins and each peripheral
 	Init_LEDs();
 	Init_USART3();
 	Init_ADC();
-	Init_Pins();
-	
+	Init_Valve_Pins();
+	Init_Pump_Pin();
 	
 	// Set initial conditions
 	message_received_flag = 0;
@@ -215,14 +226,9 @@ void Calibrate_and_start_ADC(void) {
 	ADC1->CR |= (1 << 2);
 }
 
-void Init_Pins(void) {
+void Init_Valve_Pins(void) {
 	
 	// Configure GPIOB 11, 12, and 13 to control the valves.
-	
-	// Feed the clock into the peripheral
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 
 	// Configure the pins to general purpose output mode (01)
 	GPIOB->MODER &= ~(2 << 2*11);
@@ -397,33 +403,46 @@ void Process_TDR(char valve_ID, char action_ID) {
 			This observed as we put things in cold water, the leds were blue/orange, but as things get heated up, it gets closer to the red and green LED.
 		**/
 void Sense_Temperature(void) {
+	
+	float HOTTEST = 46;
+	float ROOM_TEMP = 48;
+	float FOUNTAIN_WATER = 50;
+	float ICE_WATER = 52;
+	
+	
+	GPIOB->ODR |= 1 << 6; // TODO: set the speed in each situation.
 	while(1) {
 
 		// Store the analog value into a variable
 		float temperature = ADC1->DR;
 		
 		GPIOC->ODR &= ~(RED | BLUE | GREEN | ORANGE);
-		if(temperature < 45.5) { //45.2
+		if(temperature < HOTTEST) {
 			GPIOC->ODR &= ~(RED | BLUE | GREEN);
 			GPIOC->ODR |= ORANGE; // HOTTEST (in fire)
-			
 		}
-		else if(temperature < 47) { // 46.7
+		else if(HOTTEST < temperature && temperature < ROOM_TEMP) {
 			GPIOC->ODR &= ~(BLUE | GREEN | ORANGE);
 			GPIOC->ODR |= RED; // Room Temperature.
-			
 		}
-		else if(temperature < 48.5) { // 48
+		else if(ROOM_TEMP < temperature && temperature < FOUNTAIN_WATER) {
 			GPIOC->ODR &= ~(RED | BLUE | ORANGE);
 			GPIOC->ODR |= GREEN; // Cold (water from the drinking fountain)
-			
 		}
-		else if (temperature < 52) { // 52
+		else if (FOUNTAIN_WATER < temperature && temperature < ICE_WATER) {
 			GPIOC->ODR &= ~(RED | GREEN | ORANGE);
 			GPIOC->ODR |= BLUE; // COLDEST (ice water)
 			
 		}
 	}
+}
+
+void Init_Pump_Pin(void) { // Use PB6 to control the power of the pump
+	GPIOB->MODER &= ~(3 << 2*6);// input mode (00)
+	GPIOB->OSPEEDR &= ~(1 << 2*6); // low speed (x0)
+	GPIOB->PUPDR |= (2 << 2*6);// pull-down (10)
+	GPIOB->PUPDR &= ~(1 << 2*6);
+	GPIOB->ODR &= ~(1 << 6); // Initialize to off
 }
 // _________________________________________________________ System __________________________________________________________________________________
 /**
