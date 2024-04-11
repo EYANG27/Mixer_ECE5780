@@ -36,7 +36,6 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
-// USART methods
 void Init_USART3(void);
 void Init_LEDs(void);
 void Transmit_Char(char c);
@@ -51,6 +50,7 @@ void Init_Valve_Pins(void);
 void Sense_Temperature(void);
 
 void Init_Pump_Pin(void);
+void pwm_setDutyCycle(uint8_t duty);
 
 /* Global variables -----------------------------------------------*/
 int GREEN = (1 << 9);
@@ -96,7 +96,12 @@ int main(void) {
 	Calibrate_and_start_ADC();
 
 	// Run
+	
+	// TODO: these two things need to time share (run concurrently)
+	// Control_Valves();
   Sense_Temperature();
+	
+	
 }
 
 // _________________________________________________________ Peripheral and Pin Initializations __________________________________________________________________________________
@@ -420,29 +425,39 @@ void Sense_Temperature(void) {
 		if(temperature < HOTTEST) {
 			GPIOC->ODR &= ~(RED | BLUE | GREEN);
 			GPIOC->ODR |= ORANGE; // HOTTEST (in fire)
+			pwm_setDutyCycle(0);
 		}
 		else if(HOTTEST < temperature && temperature < ROOM_TEMP) {
 			GPIOC->ODR &= ~(BLUE | GREEN | ORANGE);
 			GPIOC->ODR |= RED; // Room Temperature.
+			pwm_setDutyCycle(25);
 		}
 		else if(ROOM_TEMP < temperature && temperature < FOUNTAIN_WATER) {
 			GPIOC->ODR &= ~(RED | BLUE | ORANGE);
 			GPIOC->ODR |= GREEN; // Cold (water from the drinking fountain)
+			pwm_setDutyCycle(50);
 		}
 		else if (FOUNTAIN_WATER < temperature && temperature < ICE_WATER) {
 			GPIOC->ODR &= ~(RED | GREEN | ORANGE);
 			GPIOC->ODR |= BLUE; // COLDEST (ice water)
-			
+			pwm_setDutyCycle(100);
 		}
 	}
 }
 
-void Init_Pump_Pin(void) { // Use PB6 to control the power of the pump
-	GPIOB->MODER &= ~(3 << 2*6);// input mode (00)
-	GPIOB->OSPEEDR &= ~(1 << 2*6); // low speed (x0)
-	GPIOB->PUPDR |= (2 << 2*6);// pull-down (10)
-	GPIOB->PUPDR &= ~(1 << 2*6);
-	GPIOB->ODR &= ~(1 << 6); // Initialize to off
+void Init_Pump_Pin(void) { // Use PA4 to control the power of the pump
+	GPIOA->MODER &= ~(3 << 2*4);// input mode (00)
+	GPIOA->OSPEEDR &= ~(1 << 2*4); // low speed (x0)
+	GPIOA->PUPDR |= (2 << 2*4);// pull-down (10)
+	GPIOA->PUPDR &= ~(1 << 2*4);
+	GPIOA->ODR &= ~(1 << 4); // Initialize to off
+}
+
+void pwm_setDutyCycle(uint8_t duty) {
+    if(duty <= 100) {
+        TIM14->CCR1 = ((uint32_t)duty*TIM14->ARR)/100;  // Use linear transform to produce CCR1 value
+        // (CCR1 == "pulse" parameter in PWM struct used by peripheral library)
+    }
 }
 // _________________________________________________________ System __________________________________________________________________________________
 /**
