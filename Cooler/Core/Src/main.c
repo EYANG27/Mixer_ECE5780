@@ -86,7 +86,7 @@ int main(void) {
 	Init_USART3();
 	Init_ADC();
 	Init_Valve_Pins();
-	Init_Pump_Pin();
+	Init_Pump();
 	
 	// Set initial conditions
 	message_received_flag = 0;
@@ -443,14 +443,6 @@ void Sense_Temperature(void) {
 			pwm_setDutyCycle(100);
 		}
 	}
-}
-
-void Init_Pump_Pin(void) { // Use PA4 to control the power of the pump
-	GPIOA->MODER &= ~(3 << 2*4);// input mode (00)
-	GPIOA->OSPEEDR &= ~(1 << 2*4); // low speed (x0)
-	GPIOA->PUPDR |= (2 << 2*4);// pull-down (10)
-	GPIOA->PUPDR &= ~(1 << 2*4);
-	GPIOA->ODR &= ~(1 << 4); // Initialize to off
 }
 
 // _________________________________________________________ System __________________________________________________________________________________

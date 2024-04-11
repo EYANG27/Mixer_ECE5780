@@ -25,9 +25,6 @@ extern volatile uint8_t Ki;            // Integral gain
  * -------------------------------------------------------------------------------------------------------------
  */
 
-// Sets up the entire motor drive system
-void motor_init(void);
-
 // Set the duty cycle of the PWM, accepts (0-100)
 void pwm_setDutyCycle(uint8_t duty);
 
@@ -41,6 +38,6 @@ void PI_update(void);
  */
 
 // Sets up the PWM and direction signals to drive the H-Bridge
-void pwm_init(void);
+void Init_Pump(void);
 
 #endif /* MOTOR_H_ */

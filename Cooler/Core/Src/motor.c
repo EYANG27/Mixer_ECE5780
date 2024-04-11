@@ -18,13 +18,8 @@ volatile int16_t error = 0;         	// Speed error signal
 volatile uint8_t Kp = 1;            	// Proportional gain
 volatile uint8_t Ki = 1;            	// Integral gain
 
-// Sets up the entire motor drive system
-void motor_init(void) {
-    pwm_init();
-}
-
 // Sets up the PWM and direction signals to drive the H-Bridge
-void pwm_init(void) {
+void Init_Pump(void) {
     
     // Set up pin PA4 for H-bridge PWM output (TIMER 14 CH1)
     GPIOA->MODER |= (1 << 9);
