@@ -453,12 +453,6 @@ void Init_Pump_Pin(void) { // Use PA4 to control the power of the pump
 	GPIOA->ODR &= ~(1 << 4); // Initialize to off
 }
 
-void pwm_setDutyCycle(uint8_t duty) {
-    if(duty <= 100) {
-        TIM14->CCR1 = ((uint32_t)duty*TIM14->ARR)/100;  // Use linear transform to produce CCR1 value
-        // (CCR1 == "pulse" parameter in PWM struct used by peripheral library)
-    }
-}
 // _________________________________________________________ System __________________________________________________________________________________
 /**
   * @brief System Clock Configuration

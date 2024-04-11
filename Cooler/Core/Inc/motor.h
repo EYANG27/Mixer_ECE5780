@@ -43,10 +43,4 @@ void PI_update(void);
 // Sets up the PWM and direction signals to drive the H-Bridge
 void pwm_init(void);
 
-// Sets up encoder interface to read motor speed
-void encoder_init(void);
-
-// Sets up ADC to measure motor current
-void ADC_init(void);
-
 #endif /* MOTOR_H_ */
