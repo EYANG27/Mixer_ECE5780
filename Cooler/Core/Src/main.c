@@ -97,11 +97,25 @@ int main(void) {
 
 	// Run
 	
-	// TODO: these two things need to time share (run concurrently)
-	// Control_Valves();
-  Sense_Temperature();
+	// Two methods will time share (run concurrently)
+	Control_Valves();
+}
+
+/**
+  * @brief Sense_Temperature will trigger every 200 ms.
+  */
+void SysTick_Handler(void) {
+  HAL_IncTick();
 	
+  static int accumulator; // You can also declare a global and volatile accumulator.
 	
+	// Sense the temperature every 200 ms.
+	if(accumulator >= 200) {
+		Sense_Temperature();
+		accumulator = 0;
+	}
+	else
+		accumulator +=1;
 }
 
 // _________________________________________________________ Peripheral and Pin Initializations __________________________________________________________________________________
@@ -185,20 +199,36 @@ void Init_ADC(void) {
 	
 	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
 	
-	// PB6 is used for ADC because it can withstand 5v.
-	GPIOB->MODER |= 3 << (2*6); // Analog mode (11)
-	GPIOC->PUPDR &= ~(3 << (2*6)); // No pull-up, pull down (00)
-	ADC1->CHSELR |= (1 << 10 ); // Configure the pin for ADC conversion on channel 10
+	// PB6 can withstand 5v but ADC automatically uses PC1 the way we set it up.
+	//GPIOB->MODER |= 3 << (2*6); // Analog mode (11)
+	//GPIOC->PUPDR &= ~(3 << (2*6)); // No pull-up, pull down (00)
+	//ADC1->CHSELR |= (1 << 10 ); // Configure the pin for ADC conversion on channel 10
 	
 	// 8-bit resolution (10)
-	ADC1->CFGR1 |= (2 << 3);
-	ADC1->CFGR1 &= ~(1 << 3);
+	//ADC1->CFGR1 |= (2 << 3);
+	//ADC1->CFGR1 &= ~(1 << 3);
 	
 	// Continuous conversion mode
-	ADC1->CFGR1 |= (1 << 13);
+	//ADC1->CFGR1 |= (1 << 13);
 	
 	// Hardware triggers disabled (software-triggered only)
-	ADC1->CFGR1 &= ~(3 << 10);
+	//ADC1->CFGR1 &= ~(3 << 10);
+	
+	
+	// Alternative ADC code
+	
+	
+	// 8-bit resolution
+	ADC1->CFGR1 |= (0x2 << ADC_CFGR1_RES_Pos);
+	
+	// Continuous conversion mode
+	ADC1->CFGR1 |= (ADC_CFGR1_CONT_Msk);
+	
+	// Hardware triggers disabled (software trigger only)
+	ADC1->CFGR1 &= ~(ADC_CFGR1_EXTEN_Msk);
+	
+	// Set channel 11 for PC1
+	ADC1->CHSELR |= (ADC_CHSELR_CHSEL11);
 }
 
 void Calibrate_and_start_ADC(void) {
@@ -409,17 +439,17 @@ void Process_TDR(char valve_ID, char action_ID) {
 		**/
 void Sense_Temperature(void) {
 	
-	float HOTTEST = 46;
-	float ROOM_TEMP = 48;
-	float FOUNTAIN_WATER = 50;
-	float ICE_WATER = 52;
+	uint16_t HOTTEST = 1;
+	uint16_t ROOM_TEMP = 2;
+	uint16_t FOUNTAIN_WATER = 3;
+	uint16_t ICE_WATER = 4;
 	
 	
-	GPIOB->ODR |= 1 << 6; // TODO: set the speed in each situation.
+	
 	while(1) {
 
 		// Store the analog value into a variable
-		float temperature = ADC1->DR;
+		uint16_t temperature = ADC1->DR;
 		
 		GPIOC->ODR &= ~(RED | BLUE | GREEN | ORANGE);
 		if(temperature < HOTTEST) {
@@ -427,21 +457,26 @@ void Sense_Temperature(void) {
 			GPIOC->ODR |= ORANGE; // HOTTEST (in fire)
 			pwm_setDutyCycle(0);
 		}
-		else if(HOTTEST < temperature && temperature < ROOM_TEMP) {
+		else if(temperature < ROOM_TEMP) {
 			GPIOC->ODR &= ~(BLUE | GREEN | ORANGE);
 			GPIOC->ODR |= RED; // Room Temperature.
 			pwm_setDutyCycle(25);
 		}
-		else if(ROOM_TEMP < temperature && temperature < FOUNTAIN_WATER) {
+		else if(temperature < FOUNTAIN_WATER) {
 			GPIOC->ODR &= ~(RED | BLUE | ORANGE);
 			GPIOC->ODR |= GREEN; // Cold (water from the drinking fountain)
 			pwm_setDutyCycle(50);
 		}
-		else if (FOUNTAIN_WATER < temperature && temperature < ICE_WATER) {
+		else if (temperature < ICE_WATER) {
 			GPIOC->ODR &= ~(RED | GREEN | ORANGE);
 			GPIOC->ODR |= BLUE; // COLDEST (ice water)
 			pwm_setDutyCycle(100);
 		}
+		//else { // Indicate an error.
+			//GPIOC->ODR &= ~(GREEN | RED);
+			//GPIOC->ODR |= BLUE;
+			//GPIOC->ODR |= ORANGE;
+		//}
 	}
 }
 
