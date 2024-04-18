@@ -33,6 +33,9 @@
 #include "stm32f0xx.h"
 #include "motor.h"
 
+//#include "DallasTemperature_STM32.h"
+//#include "OneWire_STM32.h"
+
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
@@ -47,10 +50,12 @@ void Control_Valves(void);
 void Init_ADC(void);
 void Calibrate_and_start_ADC(void);
 void Init_Valve_Pins(void);
-void Sense_Temperature(void);
+
 
 void Init_Pump_Pin(void);
 void pwm_setDutyCycle(uint8_t duty);
+
+void ConfigPB6(void);
 
 /* Global variables -----------------------------------------------*/
 int GREEN = (1 << 9);
@@ -63,8 +68,6 @@ volatile char received_byte;
 volatile uint8_t message_received_flag;
 static char valve_ID;
 static char action_ID;
-
-// TODO: Pump control
 
 /**
   * @brief  The application entry point.
@@ -97,25 +100,8 @@ int main(void) {
 
 	// Run
 	
-	// Two methods will time share (run concurrently)
+	// The two methods Control_Valves and Sense_Temperature are time sharing (run concurrently) because of the systick timer.
 	Control_Valves();
-}
-
-/**
-  * @brief Sense_Temperature will trigger every 200 ms.
-  */
-void SysTick_Handler(void) {
-  HAL_IncTick();
-	
-  static int accumulator; // You can also declare a global and volatile accumulator.
-	
-	// Sense the temperature every 200 ms.
-	if(accumulator >= 200) {
-		Sense_Temperature();
-		accumulator = 0;
-	}
-	else
-		accumulator +=1;
 }
 
 // _________________________________________________________ Peripheral and Pin Initializations __________________________________________________________________________________
@@ -199,36 +185,36 @@ void Init_ADC(void) {
 	
 	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
 	
-	// PB6 can withstand 5v but ADC automatically uses PC1 the way we set it up.
-	//GPIOB->MODER |= 3 << (2*6); // Analog mode (11)
-	//GPIOC->PUPDR &= ~(3 << (2*6)); // No pull-up, pull down (00)
-	//ADC1->CHSELR |= (1 << 10 ); // Configure the pin for ADC conversion on channel 10
+	// ADC1 on channel 10 automatically uses PC0.
+	GPIOC->MODER |= 3; // Analog mode (11)
+	GPIOC->PUPDR &= ~3; // No pull-up, pull down (00)
+	ADC1->CHSELR |= (1 << 10 ); // Configure the pin for ADC conversion on channel 10
 	
 	// 8-bit resolution (10)
-	//ADC1->CFGR1 |= (2 << 3);
-	//ADC1->CFGR1 &= ~(1 << 3);
+	ADC1->CFGR1 |= (2 << 3);
+	ADC1->CFGR1 &= ~(1 << 3);
 	
 	// Continuous conversion mode
-	//ADC1->CFGR1 |= (1 << 13);
+	ADC1->CFGR1 |= (1 << 13);
 	
 	// Hardware triggers disabled (software-triggered only)
-	//ADC1->CFGR1 &= ~(3 << 10);
+	ADC1->CFGR1 &= ~(3 << 10);
 	
 	
-	// Alternative ADC code
+	// Alternatively, we can use ADC1 on channel 11 and use PC1.
 	
 	
 	// 8-bit resolution
-	ADC1->CFGR1 |= (0x2 << ADC_CFGR1_RES_Pos);
+	//ADC1->CFGR1 |= (0x2 << ADC_CFGR1_RES_Pos);
 	
 	// Continuous conversion mode
-	ADC1->CFGR1 |= (ADC_CFGR1_CONT_Msk);
+	//ADC1->CFGR1 |= (ADC_CFGR1_CONT_Msk);
 	
 	// Hardware triggers disabled (software trigger only)
-	ADC1->CFGR1 &= ~(ADC_CFGR1_EXTEN_Msk);
+	//ADC1->CFGR1 &= ~(ADC_CFGR1_EXTEN_Msk);
 	
 	// Set channel 11 for PC1
-	ADC1->CHSELR |= (ADC_CHSELR_CHSEL11);
+	//ADC1->CHSELR |= (ADC_CHSELR_CHSEL11);
 }
 
 void Calibrate_and_start_ADC(void) {
@@ -425,8 +411,19 @@ void Process_TDR(char valve_ID, char action_ID) {
 
 // _________________________________________________________ Temperature Control __________________________________________________________________________________
 
+void ConfigPB6(void) { // TODO: if we can get the ADC to work with pc0 we don't need this method.
+	GPIOB -> MODER &= ~(1<<12);
+	
+	//GPIOB -> OTYPER &= ~(1<<12);
 
+	GPIOB -> PUPDR &= ~(1<<0);
+	GPIOB -> PUPDR &= ~(1<<1);
+
+}
 /**
+		instead of using while(1), we are using a timer interrupt every 100 ms. To do this, we had to declare the "Sense_Temperature()" in the main.h file
+		then update the behavior of SysTick_Handler() in the stm32f0xx_it.c file.
+
 		We supplied 500 mv from the AD2 and placed the thermocouple directly in between source and ground. That led to the observed LED transitions being
 		in the range 45-48. The changes in voltage accross the thermocouple are very small (in the tens of milivolt range)>.
 		
@@ -436,20 +433,22 @@ void Process_TDR(char valve_ID, char action_ID) {
 		Compareing these observations to our existing knowledge of resitors, we know that as temperature decreases, materials become more dense resistance
 		also decreases. the hotter the temperatures, the less dense so high resistance.
 			This observed as we put things in cold water, the leds were blue/orange, but as things get heated up, it gets closer to the red and green LED.
+
+		Temperature may be a negative number so we need to use signed integers.
 		**/
 void Sense_Temperature(void) {
 	
-	uint16_t HOTTEST = 1;
-	uint16_t ROOM_TEMP = 2;
-	uint16_t FOUNTAIN_WATER = 3;
-	uint16_t ICE_WATER = 4;
+	// Store the analog value into a variable
+	int16_t HOTTEST = 119;
+	int16_t ROOM_TEMP = 120;
+	int16_t FOUNTAIN_WATER = 121 ;
+	int16_t ICE_WATER = 122;
+	
+	ConfigPB6();
+	uint16_t temperature = ADC1->DR;
+	//uint16_t temperature = GPIOB->IDR;
 	
 	
-	
-	while(1) {
-
-		// Store the analog value into a variable
-		uint16_t temperature = ADC1->DR;
 		
 		GPIOC->ODR &= ~(RED | BLUE | GREEN | ORANGE);
 		if(temperature < HOTTEST) {
@@ -472,12 +471,11 @@ void Sense_Temperature(void) {
 			GPIOC->ODR |= BLUE; // COLDEST (ice water)
 			pwm_setDutyCycle(100);
 		}
-		//else { // Indicate an error.
-			//GPIOC->ODR &= ~(GREEN | RED);
-			//GPIOC->ODR |= BLUE;
-			//GPIOC->ODR |= ORANGE;
-		//}
-	}
+		else { // Indicate an error.
+			GPIOC->ODR &= ~(GREEN | RED);
+			GPIOC->ODR |= BLUE;
+			GPIOC->ODR |= ORANGE;
+		}
 }
 
 // _________________________________________________________ System __________________________________________________________________________________

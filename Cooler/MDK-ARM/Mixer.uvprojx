@@ -414,6 +414,16 @@
               <FileType>1</FileType>
               <FilePath>..\Core\Src\motor.c</FilePath>
             </File>
+            <File>
+              <FileName>DallasTemperature_STM32.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\DallasTemperature_STM32.h</FilePath>
+            </File>
+            <File>
+              <FileName>OneWire_STM32.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\OneWire_STM32.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
