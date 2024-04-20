@@ -4,6 +4,7 @@
 "mixer\stm32f0xx_it.o"
 "mixer\stm32f0xx_hal_msp.o"
 "mixer\motor.o"
+"mixer\temp.o"
 "mixer\stm32f0xx_hal_tim.o"
 "mixer\stm32f0xx_hal_tim_ex.o"
 "mixer\stm32f0xx_hal_rcc.o"

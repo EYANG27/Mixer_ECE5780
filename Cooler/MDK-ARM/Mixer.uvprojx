@@ -424,6 +424,16 @@
               <FileType>5</FileType>
               <FilePath>..\Core\Inc\OneWire_STM32.h</FilePath>
             </File>
+            <File>
+              <FileName>temp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\temp.c</FilePath>
+            </File>
+            <File>
+              <FileName>temp.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\temp.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -535,5 +545,14 @@
     </components>
     <files/>
   </RTE>
+
+  <LayerInfo>
+    <Layers>
+      <Layer>
+        <LayName>Mixer</LayName>
+        <LayPrjMark>1</LayPrjMark>
+      </Layer>
+    </Layers>
+  </LayerInfo>
 
 </Project>
