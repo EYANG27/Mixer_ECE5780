@@ -51,11 +51,8 @@ void Init_ADC(void);
 void Calibrate_and_start_ADC(void);
 void Init_Valve_Pins(void);
 
-
-void Init_Pump_Pin(void);
 void pwm_setDutyCycle(uint8_t duty);
 
-void ConfigPB6(void);
 
 /* Global variables -----------------------------------------------*/
 int GREEN = (1 << 9);
@@ -86,10 +83,9 @@ int main(void) {
 	
 	// Configure the pins and each peripheral
 	Init_LEDs();
+	Init_Valve_Pins();
 	Init_USART3();
 	Init_ADC();
-	Init_Valve_Pins();
-	Init_Pump();
 	
 	// Set initial conditions
 	message_received_flag = 0;
@@ -397,7 +393,6 @@ void Process_TDR(char valve_ID, char action_ID) {
 		case 'o':
 			GPIOB->ODR |= (odr_mask);
 			GPIOC->ODR |= (LED);
-			 
 			break;
 		case 'c':
 			GPIOC->ODR &= ~(LED);
@@ -411,15 +406,7 @@ void Process_TDR(char valve_ID, char action_ID) {
 
 // _________________________________________________________ Temperature Control __________________________________________________________________________________
 
-void ConfigPB6(void) { // TODO: if we can get the ADC to work with pc0 we don't need this method.
-	GPIOB -> MODER &= ~(1<<12);
-	
-	//GPIOB -> OTYPER &= ~(1<<12);
 
-	GPIOB -> PUPDR &= ~(1<<0);
-	GPIOB -> PUPDR &= ~(1<<1);
-
-}
 /**
 		instead of using while(1), we are using a timer interrupt every 100 ms. To do this, we had to declare the "Sense_Temperature()" in the main.h file
 		then update the behavior of SysTick_Handler() in the stm32f0xx_it.c file.
@@ -444,9 +431,8 @@ void Sense_Temperature(void) {
 	int16_t FOUNTAIN_WATER = 121 ;
 	int16_t ICE_WATER = 122;
 	
-	ConfigPB6();
-	uint16_t temperature = ADC1->DR;
-	//uint16_t temperature = GPIOB->IDR;
+	//int16_t temperature = ADC1->DR;
+	int16_t temperature = GPIOB->IDR;
 	
 	
 		

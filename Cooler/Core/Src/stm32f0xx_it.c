@@ -70,15 +70,16 @@ void PendSV_Handler(void)
 void SysTick_Handler(void) {
   HAL_IncTick();
 	
-  static int accumulator; // You can also declare a global and volatile accumulator.
+  //static int accumulator; // You can also declare a global and volatile accumulator.
 	
 	// Sense the temperature every 200 ms.
-	if(accumulator >= 200) {
-		Sense_Temperature();
-		accumulator = 0;
-	}
-	else
-		accumulator +=1;
+	//if(accumulator >= 200) {
+		//Sense_Temperature();
+		//accumulator = 0;
+	//}
+	//else {
+		//accumulator +=1;
+	//}
 }
 
 /******************************************************************************/
