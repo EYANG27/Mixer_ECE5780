@@ -19,10 +19,13 @@
 	*
 	* TODO: write documentation
 	*
-	*
-	*
-	*
-	*
+	* Pin Table:
+	*		PA4 - Motor Enable
+	*		PA5,6 - Motor Direction
+	* 	PC6,7,8,9 - LEDs
+	*		PC4,5 - USART3
+	* 	PA8,9 - Temperature sensor TX and RX
+	*		PB11,12,13 - Valve control
 	*
 	* @Authors: Eddison Yang, Freddie Rice, Shem Snow
   */
@@ -32,6 +35,7 @@
 #include <stdlib.h>
 #include "stm32f0xx.h"
 #include "motor.h"
+#include "temp.h"
 
 //#include "DallasTemperature_STM32.h"
 //#include "OneWire_STM32.h"
@@ -63,6 +67,10 @@ int ORANGE = (1 << 8);
 int BLUE = (1 << 7);
 int RED = (1 << 6);
 
+#define DS18B20_PORT GPIOA
+#define TX_PIN GPIO_PIN_8
+#define RX_PIN GPIO_PIN_9
+
 // Valve control
 volatile char received_byte;
 volatile uint8_t message_received_flag;
@@ -90,6 +98,8 @@ int main(void) {
 	Init_ADC();
 	Init_Valve_Pins();
 	Init_Pump();
+	Init_TempSense(DS18B20_PORT, TX_PIN, RX_PIN);
+	Init_TIM6();
 	
 	// Set initial conditions
 	message_received_flag = 0;
@@ -99,9 +109,12 @@ int main(void) {
 	Calibrate_and_start_ADC();
 
 	// Run
+	while (1) {
+		PI_update();   
+	}
 	
 	// The two methods Control_Valves and Sense_Temperature are time sharing (run concurrently) because of the systick timer.
-	Control_Valves();
+	// Control_Valves(); // Commented out while working on pump temp integration since this is blocking
 }
 
 // _________________________________________________________ Peripheral and Pin Initializations __________________________________________________________________________________

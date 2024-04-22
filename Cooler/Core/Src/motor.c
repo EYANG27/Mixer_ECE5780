@@ -10,13 +10,14 @@
  * - Speed changes from 80 to 0 RPM
  */
 #include "motor.h"
+#include "temp.h"
 
-volatile int16_t desired_temp = 21;		// Desired fluid temperature
+volatile int16_t desired_temp = 20;		// Desired fluid temperature
 volatile int16_t error_integral = 0;  // Integrated error signal
 volatile uint8_t duty_cycle = 0;    	// Output PWM duty cycle
 volatile int16_t error = 0;         	// Speed error signal
-volatile uint8_t Kp = 1;            	// Proportional gain
-volatile uint8_t Ki = 1;            	// Integral gain
+volatile uint8_t Kp = 25;            	// Proportional gain
+volatile uint8_t Ki = 0;            	// Integral gain
 
 // Sets up the PWM and direction signals to drive the H-Bridge
 void Init_Pump(void) {
@@ -79,7 +80,8 @@ void pwm_setDutyCycle(uint8_t duty) {
 */
 void PI_update(void) {
 	
-	int16_t temperature = 0; // Read ADC once we figure out the temperature sensor
+	float temperature = TempSense(); // Read temperature sensor
+	temp = temperature; // debug viewing
 	
 	// Calculate error signal and write it to the "error" variable
   error = temperature - desired_temp;
@@ -98,44 +100,18 @@ void PI_update(void) {
 		error_integral = 0;
 	else if(error_integral > 3200)
 		error_integral = 3200;
-	
-	
-    /* Hint: The value clamp is needed to prevent excessive "windup" in the integral.
-     *       You'll read more about this for the post-lab. The exact value is arbitrary
-     *       but affects the PI tuning.
-     *       Recommend that you clamp between 0 and 3200 (what is used in the lab solution)
-     */
     
   // Calculate proportional portion, add integral and write to "output" variable
   int16_t output = (Kp*error) + Ki * error_integral;
-    
-    /* Because the calculated values for the PI controller are significantly larger than 
-     * the allowable range for duty cycle, you'll need to divide the result down into 
-     * an appropriate range. (Maximum integral clamp / X = 100% duty cycle)
-     * 
-     * Hint: If you chose 3200 for the integral clamp you should divide by 32 (right shift by 5 bits), 
-     *       this will give you an output of 100 at maximum integral "windup".
-     *
-     * This division also turns the above calculations into pseudo fixed-point. This is because
-     * the lowest 5 bits act as if they were below the decimal point until the division where they
-     * were truncated off to result in an integer value. 
-     *
-     * Technically most of this is arbitrary, in a real system you would want to use a fixed-point
-     * math library. The main difference that these values make is the difference in the gain values
-     * required for tuning.
-     */
-
-   // Divide the output into the proper range for output adjustment
-   output = output >> 5;
-   
+  
 	 
-	 // Clamp the output value between 0 and 100
-	 if(output < 0)
-		 output = 0;
-	 else if(output > 100)
-		 output = 100;
+	// Clamp the output value between 0 and 100
+	if(output < 0)
+		output = 0;
+	else if(output > 100)
+		output = 100;
     
-   pwm_setDutyCycle(output);
-   duty_cycle = output;            // For debug viewing
+  pwm_setDutyCycle(output);
+  duty_cycle = output;            // For debug viewing
 
 }
