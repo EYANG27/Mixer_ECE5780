@@ -434,6 +434,16 @@
               <FileType>5</FileType>
               <FilePath>..\Core\Inc\temp.h</FilePath>
             </File>
+            <File>
+              <FileName>Valves.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\Valves.h</FilePath>
+            </File>
+            <File>
+              <FileName>Valves.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\Valves.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

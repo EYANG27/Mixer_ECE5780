@@ -16,7 +16,7 @@ volatile int16_t desired_temp = 20;		// Desired fluid temperature
 volatile int16_t error_integral = 0;  // Integrated error signal
 volatile uint8_t duty_cycle = 0;    	// Output PWM duty cycle
 volatile int16_t error = 0;         	// Speed error signal
-volatile uint8_t Kp = 25;            	// Proportional gain
+volatile uint8_t Kp = 10;            	// Proportional gain
 volatile uint8_t Ki = 0;            	// Integral gain
 
 // Sets up the PWM and direction signals to drive the H-Bridge

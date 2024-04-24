@@ -17,6 +17,7 @@
 #define RX_PIN GPIO_PIN_9
 
 float temp;
+float prevTemp;
 uint8_t Presence;
 uint8_t Temp_byte1;
 uint8_t Temp_byte2;
@@ -191,5 +192,10 @@ float TempSense(void) {
 	TempStart(); // Issue reset to stop reading data bytes
 	
 	temp = ConvertTemp(Temp_byte1, Temp_byte2);
+	float diff = prevTemp - temp;
+	if (diff<0) diff=-diff;
+	if (temp < 0) {
+		temp = prevTemp;
+	}
 	return temp;
 }
