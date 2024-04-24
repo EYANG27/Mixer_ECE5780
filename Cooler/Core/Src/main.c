@@ -19,12 +19,15 @@
 	*
 	* TODO: write documentation
 	*
+	* Pin Table:
+	*		PA4 - Motor Enable
+	*		PA5,6 - Motor Direction
+	* 	PC6,7,8,9 - LEDs
+	*		PC4,5 - USART3 Tx and Rx for the valves
+	* 	PA8,9 - Temperature sensor TX and RX
+	*		PB11,12,13 - Valve control
 	*
-	*
-	*
-	*
-	*
-	* @Authors: Eddison Yang, Freddie Rice, Shem Snow
+	* @Authors: Edison Yang, Freddie Rice, Shem Snow
   */
 
 #include "main.h"
@@ -32,6 +35,7 @@
 #include <stdlib.h>
 #include "stm32f0xx.h"
 #include "motor.h"
+#include "temp.h"
 
 //#include "DallasTemperature_STM32.h"
 //#include "OneWire_STM32.h"
@@ -51,14 +55,16 @@ void Init_ADC(void);
 void Calibrate_and_start_ADC(void);
 void Init_Valve_Pins(void);
 
-void pwm_setDutyCycle(uint8_t duty);
-
 
 /* Global variables -----------------------------------------------*/
 int GREEN = (1 << 9);
 int ORANGE = (1 << 8);
 int BLUE = (1 << 7);
 int RED = (1 << 6);
+
+#define DS18B20_PORT GPIOA
+#define TX_PIN GPIO_PIN_8
+#define RX_PIN GPIO_PIN_9
 
 // Valve control
 volatile char received_byte;
@@ -83,9 +89,12 @@ int main(void) {
 	
 	// Configure the pins and each peripheral
 	Init_LEDs();
-	Init_Valve_Pins();
 	Init_USART3();
 	Init_ADC();
+	Init_Valve_Pins();
+	Init_Pump();
+	Init_TempSense(DS18B20_PORT, TX_PIN, RX_PIN);
+	Init_TIM6();
 	
 	// Set initial conditions
 	message_received_flag = 0;
@@ -93,11 +102,35 @@ int main(void) {
 	
 	// Start the ADC.
 	Calibrate_and_start_ADC();
-
-	// Run
 	
-	// The two methods Control_Valves and Sense_Temperature are time sharing (run concurrently) because of the systick timer.
-	Control_Valves();
+	// Use a timer to run the temperature sensor.
+//	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // Enable timer 2
+//	TIM2->PSC = 7999;
+//	TIM2->ARR = 5000;
+	// Configure the timer to generate an interrrupt on the UEV event. DIER enables direct memory access for a given timer.
+//	TIM2->DIER |= 1;
+	// Configure timer 2 to start.
+//	TIM2->CR1 |= 1;
+	// Enable the interrupt in the NVIC for the timer
+//	NVIC_EnableIRQ(TIM2_IRQn);
+//	NVIC_SetPriority(TIM2_IRQn, 3);
+	
+	// The two methods Control_Valves and Sense_Temperature are time sharing (running concurrently) because of the timer.
+//	Control_Valves();
+while(1)
+	PI_update();
+}
+
+/*
+* Interrupt handler for timer 2
+*/
+void TIM2_IRQHandler(void) {
+	
+	// Run the temperature sensor.
+	PI_update();
+	
+	// Clear the pending flag for the interrrupt status register
+	TIM2->SR ^= 1;
 }
 
 // _________________________________________________________ Peripheral and Pin Initializations __________________________________________________________________________________
@@ -393,6 +426,7 @@ void Process_TDR(char valve_ID, char action_ID) {
 		case 'o':
 			GPIOB->ODR |= (odr_mask);
 			GPIOC->ODR |= (LED);
+			 
 			break;
 		case 'c':
 			GPIOC->ODR &= ~(LED);
@@ -404,65 +438,6 @@ void Process_TDR(char valve_ID, char action_ID) {
 }
 
 
-// _________________________________________________________ Temperature Control __________________________________________________________________________________
-
-
-/**
-		instead of using while(1), we are using a timer interrupt every 100 ms. To do this, we had to declare the "Sense_Temperature()" in the main.h file
-		then update the behavior of SysTick_Handler() in the stm32f0xx_it.c file.
-
-		We supplied 500 mv from the AD2 and placed the thermocouple directly in between source and ground. That led to the observed LED transitions being
-		in the range 45-48. The changes in voltage accross the thermocouple are very small (in the tens of milivolt range)>.
-		
-		We observed that the colder the thermocouple is, the higher the voltage read on the GPIO pin by ADC1->DR (data register). Likewise, the hotter the 
-		thermocouple, the lower the number in the ADC's data register.
-
-		Compareing these observations to our existing knowledge of resitors, we know that as temperature decreases, materials become more dense resistance
-		also decreases. the hotter the temperatures, the less dense so high resistance.
-			This observed as we put things in cold water, the leds were blue/orange, but as things get heated up, it gets closer to the red and green LED.
-
-		Temperature may be a negative number so we need to use signed integers.
-		**/
-void Sense_Temperature(void) {
-	
-	// Store the analog value into a variable
-	int16_t HOTTEST = 119;
-	int16_t ROOM_TEMP = 120;
-	int16_t FOUNTAIN_WATER = 121 ;
-	int16_t ICE_WATER = 122;
-	
-	//int16_t temperature = ADC1->DR;
-	int16_t temperature = GPIOB->IDR;
-	
-	
-		
-		GPIOC->ODR &= ~(RED | BLUE | GREEN | ORANGE);
-		if(temperature < HOTTEST) {
-			GPIOC->ODR &= ~(RED | BLUE | GREEN);
-			GPIOC->ODR |= ORANGE; // HOTTEST (in fire)
-			pwm_setDutyCycle(0);
-		}
-		else if(temperature < ROOM_TEMP) {
-			GPIOC->ODR &= ~(BLUE | GREEN | ORANGE);
-			GPIOC->ODR |= RED; // Room Temperature.
-			pwm_setDutyCycle(25);
-		}
-		else if(temperature < FOUNTAIN_WATER) {
-			GPIOC->ODR &= ~(RED | BLUE | ORANGE);
-			GPIOC->ODR |= GREEN; // Cold (water from the drinking fountain)
-			pwm_setDutyCycle(50);
-		}
-		else if (temperature < ICE_WATER) {
-			GPIOC->ODR &= ~(RED | GREEN | ORANGE);
-			GPIOC->ODR |= BLUE; // COLDEST (ice water)
-			pwm_setDutyCycle(100);
-		}
-		else { // Indicate an error.
-			GPIOC->ODR &= ~(GREEN | RED);
-			GPIOC->ODR |= BLUE;
-			GPIOC->ODR |= ORANGE;
-		}
-}
 
 // _________________________________________________________ System __________________________________________________________________________________
 /**
