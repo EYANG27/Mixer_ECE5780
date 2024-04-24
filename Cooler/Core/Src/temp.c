@@ -171,7 +171,7 @@ float ConvertTemp(uint8_t LSB, uint8_t MSB) {
 
 float TempSense(void) {
 	Presence = TempStart(); // Reset pulse
-	HAL_Delay(1);
+	delay(250);
 	TempWrite (0xCC);  // skip ROM
 	TempWrite (0x44);  // Issue temp convert request
 	HAL_Delay (800);	 // Wait for temp conversion to finish

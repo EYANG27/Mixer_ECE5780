@@ -104,23 +104,27 @@ int main(void) {
 	Calibrate_and_start_ADC();
 	
 	// Use a timer to run the temperature sensor.
-//	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // Enable timer 2
-//	TIM2->PSC = 7999;
-//	TIM2->ARR = 5000;
+	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // Enable timer 2 clock
+	
+	// Configure timer 2 for a trigger every 5 seconds
+	TIM2->PSC = 7999;
+	TIM2->ARR = 5000;
+	
 	// Configure the timer to generate an interrrupt on the UEV event. DIER enables direct memory access for a given timer.
-//	TIM2->DIER |= 1;
-	// Configure timer 2 to start.
-//	TIM2->CR1 |= 1;
+	TIM2->DIER |= 1;
+
 	// Enable the interrupt in the NVIC for the timer
-//	NVIC_EnableIRQ(TIM2_IRQn);
-//	NVIC_SetPriority(TIM2_IRQn, 3);
+	NVIC_EnableIRQ(TIM2_IRQn);
+	NVIC_SetPriority(TIM2_IRQn, 3);
+	NVIC_SetPriority(SysTick_IRQn, 1); // Increase priority of systick, it is important to the functionality of the temp sense code, so it must execute
+	
+	// Configure timer 2 to start.
+	TIM2->CR1 |= 1;
 	
 	// The two methods Control_Valves and Sense_Temperature are time sharing (running concurrently) because of the timer.
-//	Control_Valves();
-while(1)
-	PI_update();
-}
+	Control_Valves(); // blocking with internal while (1)
 
+}
 /*
 * Interrupt handler for timer 2
 */
