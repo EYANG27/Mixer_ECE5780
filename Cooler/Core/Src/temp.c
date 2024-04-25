@@ -4,10 +4,7 @@
  * 
  * Uses PA8,9
  * 
- * - Speed changes from 0 to 80 RPM
- * - Speed changes from 80 to 50 RPM
- * - Speed changes from 50 to 80 RPM
- * - Speed changes from 80 to 0 RPM
+ * 
  */ 
 
 #include "temp.h"

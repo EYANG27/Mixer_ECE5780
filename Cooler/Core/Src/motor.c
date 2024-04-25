@@ -1,13 +1,7 @@
 /* -------------------------------------------------------------------------------------------------------------
  *  Motor Control and Initialization Functions
  * -------------------------------------------------------------------------------------------------------------
- * This lab makes so we can control a motor using a push button.
- * Pressing the button progresses the system into the following states in order:
  * 
- * - Speed changes from 0 to 80 RPM
- * - Speed changes from 80 to 50 RPM
- * - Speed changes from 50 to 80 RPM
- * - Speed changes from 80 to 0 RPM
  */
 #include "motor.h"
 #include "temp.h"

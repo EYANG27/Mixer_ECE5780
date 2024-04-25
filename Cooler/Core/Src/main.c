@@ -55,6 +55,7 @@ void Run_Temp_Timer(void);
 // ADC code we didn't use.
 void Init_ADC(void);
 void Calibrate_and_start_ADC(void);
+void Sense_Temperature(void);
 
 
 /**
@@ -75,13 +76,13 @@ int main(void) {
 	// Configure the pins and each peripheral
 	Init_LEDs();
 	Init_USART3();
-	Init_ADC();
 	Init_Valve_Pins();
 	Init_Pump();
 	Init_TempSense(DS18B20_PORT, TX_PIN, RX_PIN);
 	Init_TIM6();
 	
-	// Start the ADC.
+	// Alternatively, an ADC may be used to sense the temperature (instead of a digital temperature sensor).
+	Init_ADC();
 	Calibrate_and_start_ADC();
 	
 	Run_Temp_Timer();
@@ -180,8 +181,6 @@ void Init_Valve_Pins(void) {
 	GPIOB->ODR |= (7 << 11);
 }
 // _________________________________________________________ Temperature Control __________________________________________________________________________________
-
-
 void Run_Temp_Timer(void) {
 	// Use a timer to run the temperature sensor.
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // Enable timer 2
@@ -262,7 +261,7 @@ void assert_failed(uint8_t *file, uint32_t line) {
 #endif
 
 
-// _________ Old ADC code we decided not to use because the thermocouple's voltage doesn't change with temperature _________________________________________
+// _________ ADC code we could, but decided not to, use because the thermocouple's voltage doesn't change with temperature _________________________________________
 
 void Init_ADC(void) {
 	
@@ -329,3 +328,47 @@ void Calibrate_and_start_ADC(void) {
 	// _____________________ Start _____________________
 	ADC1->CR |= (1 << 2);
 }
+
+
+void Sense_Temperature(void) {
+	
+	// Store the analog value into a variable
+	int16_t HOTTEST = 119;
+	int16_t ROOM_TEMP = 120;
+	int16_t FOUNTAIN_WATER = 121 ;
+	int16_t ICE_WATER = 122;
+	
+	ConfigPB6();
+	//int16_t temperature = ADC1->DR;
+	int16_t temperature = GPIOB->IDR;
+	
+	
+		
+		GPIOC->ODR &= ~(RED | BLUE | GREEN | ORANGE);
+		if(temperature < HOTTEST) {
+			GPIOC->ODR &= ~(RED | BLUE | GREEN);
+			GPIOC->ODR |= ORANGE; // HOTTEST (in fire)
+			pwm_setDutyCycle(0);
+		}
+		else if(temperature < ROOM_TEMP) {
+			GPIOC->ODR &= ~(BLUE | GREEN | ORANGE);
+			GPIOC->ODR |= RED; // Room Temperature.
+			pwm_setDutyCycle(25);
+		}
+		else if(temperature < FOUNTAIN_WATER) {
+			GPIOC->ODR &= ~(RED | BLUE | ORANGE);
+			GPIOC->ODR |= GREEN; // Cold (water from the drinking fountain)
+			pwm_setDutyCycle(50);
+		}
+		else if (temperature < ICE_WATER) {
+			GPIOC->ODR &= ~(RED | GREEN | ORANGE);
+			GPIOC->ODR |= BLUE; // COLDEST (ice water)
+			pwm_setDutyCycle(100);
+		}
+		else { // Indicate an error.
+			GPIOC->ODR &= ~(GREEN | RED);
+			GPIOC->ODR |= BLUE;
+			GPIOC->ODR |= ORANGE;
+		}
+}
+
