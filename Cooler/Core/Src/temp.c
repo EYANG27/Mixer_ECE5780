@@ -2,9 +2,14 @@
  *  Temperature Sensor Functions
  * -------------------------------------------------------------------------------------------------------------
  * 
- * Uses PA8,9
+ * Uses the "one-wire" communication protocol that uses three connections: power, ground, data.
  * 
- * 
+ * GPIO pins PA8,9 are connected to power and data lines.
+ * To initiate communication, a master device pulls the data line low then specifies a slave address and finally sends a message.
+ * In this case, the message is a temperature reading which requires a fixed amount of time to occur so this code manually implements
+ * time delays to allow temperature readings.
+ *
+ * @Authors: Edison Yang, Freddie Rice, Shem Snow
  */ 
 
 #include "temp.h"
@@ -19,6 +24,9 @@ uint8_t Presence;
 uint8_t Temp_byte1;
 uint8_t Temp_byte2;
 
+/*
+* Timer 6 is used to ensure the temperature readings have adaquate time to report to the master device.
+*/
 void Init_TIM6(void) {
 	// Microsecond timer setup
 	__HAL_RCC_TIM6_CLK_ENABLE();
@@ -29,12 +37,19 @@ void Init_TIM6(void) {
 	TIM6->CR1 |= TIM_CR1_CEN;
 }
 
+/*
+* Each step on the one wire protocol requires a different amount of time so we implemented a delay function that 
+* can be told how much time to wait. 
+*/
 void delay (uint32_t us)
 {
     uint16_t start = TIM6->CNT;
     while ((TIM6->CNT - start)<us);
 }
 
+/*
+* Configures the temperature sensor to communicate using the one wire protocol.
+*/
 void Init_TempSense(GPIO_TypeDef * GPIO, uint16_t TX, uint16_t RX) {
 	GPIO_InitTypeDef TXInit = {
 		TX,
@@ -51,8 +66,26 @@ void Init_TempSense(GPIO_TypeDef * GPIO, uint16_t TX, uint16_t RX) {
 		GPIO_NOPULL
 	};
 	HAL_GPIO_Init(GPIO, &RXInit);
+	
+	/*
+	Presence = TempStart(); // Reset pulse
+	HAL_Delay(1);
+	TempWrite (0xCC);  // skip ROM
+	delay(250);
+	TempWrite (0x4E);  // Issue write scratchpad
+	delay(250);
+	TempWrite(0x00); // MSB of temp
+	delay(250);
+	TempWrite(0x00); // LSB of temp
+	delay(250);
+	TempWrite(0x1F); // write to control register for 9 bit resolution
+	*/
 }
 
+/*
+* Since the one wire protocol requires a lengthy startup process, we've separated the concerns of performing the actual temperature sensing and the
+* repetitive steps of the protocol.
+*/
 uint8_t TempStart (void)
 {
 	uint8_t Response = 0;
@@ -70,6 +103,10 @@ uint8_t TempStart (void)
 	return Response;
 }
 
+/*
+* Saving temperature is a separate concern than reading temperature. This method addresses the concerns of saving the temperature being read
+* into a place it can be referenced later.
+*/
 void TempWrite(uint8_t data)
 {
 
@@ -100,6 +137,9 @@ void TempWrite(uint8_t data)
 	}
 }
 
+/*
+* Reads a temperature value from the STM's memory. This is called by the motor.c file to determine the duty cycle for the pump.
+*/
 uint8_t TempRead(void)
 {
 	uint8_t value=0;
@@ -122,6 +162,9 @@ uint8_t TempRead(void)
 	return value;
 }
 
+/*
+* Converts the digital values obtained by the temperature sensor into degrees celsius.
+*/
 float ConvertTemp(uint8_t LSB, uint8_t MSB) {
 	float result = 0;
 	
@@ -167,10 +210,15 @@ float ConvertTemp(uint8_t LSB, uint8_t MSB) {
 	
 }
 
+
+/*
+* The actual temperature sensing code. The data line is pulled low and the receiver is specified.
+* Then a temperature sensing command is initiates, that temperature is converted into celsius, and stored into the stm's memory.
+*/
 float TempSense(void) {
 	Presence = TempStart(); // Reset pulse
 	HAL_Delay(1);
-	TempWrite (0xCC);  // skip ROM
+	TempWrite (0xCC);  // skip ROM (means this message is for all connected device)
 	TempWrite (0x44);  // Issue temp convert request
 	HAL_Delay (800);	 // Wait for temp conversion to finish
 
@@ -193,6 +241,8 @@ float TempSense(void) {
 	if (diff<0) diff=-diff;
 	if (temp < 0) {
 		temp = prevTemp;
+	} else {
+		prevTemp = temp;
 	}
 	return temp;
 }

@@ -6,6 +6,11 @@
 volatile char received_byte = 0;
 volatile uint8_t message_received_flag = '&';
 
+
+/*
+* Configures pins PC4 and PC5 to be the transmitter and receiver for USART communication.
+* Also enables the USART interrupt so user inputs will take control of the program.
+*/
 void Init_USART3(void) {
 	
 	// Feed the clock into the USART3 peripheral
@@ -52,6 +57,10 @@ void USART3_4_IRQHandler(void) {
 	}
 }
 
+/*
+* This method steps throught the USART protocol. It waits for bits in the interrupt status register to indicates progression with communication,
+* it performs validity checking for the inputs, it identifies the inputs, and it calls the actuating methods that respond to each input.
+*/
 void Control_Valves(void) {
 	while(1) {
 		

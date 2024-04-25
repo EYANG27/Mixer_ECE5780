@@ -17,8 +17,14 @@
 	*
 	*
 	*
-	* TODO: write documentation
-	*
+	* This main file, along with the four supporting .c files holds the firmware for a cooling system.
+	* It uses USART to open and close valves intended to supply or drain fluid in the system.
+	* It measures temperature and compares it to a threshold value. The error between read and actual temperature is used in a 
+	* Proportional Integral (PI) control system to drive a pump that is intended to pass hot water through a heat exchanger.
+	* This program is capable of running two types of temperature sensors.
+	* 	1: An analog thermocouple whose voltage changes at the terminals as the physical device is subject to temperature changes.
+	*		2: A digital temperature sensor that uses a "one-wire" protocol (which is pretty much I2C but with only a data line and no clock).
+	* 
 	* Pin Table:
 	*		PA4 - Motor Enable
 	*		PA5,6 - Motor Direction
@@ -59,7 +65,10 @@ void Sense_Temperature(void);
 
 
 /**
-  * @brief  The application entry point.
+  * @brief  The application entry point. It initializes all the peripherals and pins necessary for the system.
+	* Then it starts a timer that will interrupt the main process at every timer expiration to sense the temperature and adjust the pump accordingly.
+	* With the timer running, the main process of controlling the vales is entered forever. It just uses USART to constantly check for 
+	* user inputs that will open or close the valves.
   * @retval int
   */
 int main(void) {
@@ -89,23 +98,26 @@ int main(void) {
 	
 	// The two methods Control_Valves and Sense_Temperature are time sharing (running concurrently) because of the timer.
 	Control_Valves();
-//while(1)
-	//PI_update();
 }
 
 /*
-* Interrupt handler for timer 2
+* Interrupt handler for timer 2. This method determines which type of temperature sensor is used in the system.
 */
 void TIM2_IRQHandler(void) {
 	
 	// Run the temperature sensor.
 	PI_update();
+	//Sense_Temperature();
 	
 	// Clear the pending flag for the interrrupt status register
 	TIM2->SR ^= 1;
 }
 
 // _________________________________________________________ Peripheral and Pin Initializations __________________________________________________________________________________
+
+/*
+* Configures the LEDs to be controllable in the GPIOC->ODR. LEDs are initialized to off.
+*/
 void Init_LEDs(void) {
 	
 	// Initialize Port C: LEDs and pins
@@ -147,6 +159,14 @@ void Init_LEDs(void) {
 	GPIOC->ODR &= ~GREEN;
 }
 
+
+/*
+* The valves we used don't just require an on/off signal to operate. They need 5 volts flowing one way to open and 5 v flowing the other way to close.
+* Because of this, we opted for using an H-bridge that requires two inputs whose values are opposite to each other to control the direction of current.
+* 
+* Therefore this method does the same thing as Init_LEDs except it uses GPIOB pins 11-13 and sets them to be the exact opposite signal as the LED
+* pins PC6,8, and 9 which we used for valve control in our project.
+*/
 void Init_Valve_Pins(void) {
 	
 	// Configure GPIOB 11, 12, and 13 to control the valves.
@@ -181,6 +201,13 @@ void Init_Valve_Pins(void) {
 	GPIOB->ODR |= (7 << 11);
 }
 // _________________________________________________________ Temperature Control __________________________________________________________________________________
+
+/*
+* Enables the timer 2 peripheral and sets its priority in the NVIC. Timer 2 is configured by the PSC and ARR to expire every 5 seconds.
+*
+* Special instruction: the priority of timer 2 should be lower than the systick otherwise the program will deadlock because systick is 
+* used in the temperature sensing code to ensure adaquate time for reading temperatures.
+*/
 void Run_Temp_Timer(void) {
 	// Use a timer to run the temperature sensor.
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // Enable timer 2
@@ -263,6 +290,9 @@ void assert_failed(uint8_t *file, uint32_t line) {
 
 // _________ ADC code we could, but decided not to, use because the thermocouple's voltage doesn't change with temperature _________________________________________
 
+/*
+* Enables and configures the ADC to channel 10 so that it reads analog values on PC0 and saves them into the data register ADC1->DR
+*/
 void Init_ADC(void) {
 	
 	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
@@ -330,19 +360,22 @@ void Calibrate_and_start_ADC(void) {
 }
 
 
+
+/*
+* This method sets thresholds for the value of temperature. The values are random numbers the sensor reads and not in Farenheight or Celsius.
+* Depending on the observed analog value on PC0, the LED corresponding to that temperature level will brighten. 
+* The duty cycle for the pump is also set.
+*/
 void Sense_Temperature(void) {
 	
 	// Store the analog value into a variable
-	int16_t HOTTEST = 119;
-	int16_t ROOM_TEMP = 120;
-	int16_t FOUNTAIN_WATER = 121 ;
-	int16_t ICE_WATER = 122;
+	int16_t HOTTEST = 55;
+	int16_t ROOM_TEMP = 67;
+	int16_t FOUNTAIN_WATER = 80 ;
+	int16_t ICE_WATER = 90;
 	
-	ConfigPB6();
-	//int16_t temperature = ADC1->DR;
-	int16_t temperature = GPIOB->IDR;
-	
-	
+	//ConfigPB6();
+	int16_t temperature = ADC1->DR;
 		
 		GPIOC->ODR &= ~(RED | BLUE | GREEN | ORANGE);
 		if(temperature < HOTTEST) {
@@ -371,4 +404,3 @@ void Sense_Temperature(void) {
 			GPIOC->ODR |= ORANGE;
 		}
 }
-
